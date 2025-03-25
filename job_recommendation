@@ -1,0 +1,43 @@
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Sample job descriptions dataset
+data = {
+    'Job Title': [
+        'Data Scientist', 'Machine Learning Engineer', 'Software Developer', 'Business Analyst',
+        'Data Engineer', 'AI Researcher', 'Cybersecurity Analyst', 'Cloud Engineer',
+        'Product Manager', 'DevOps Engineer', 'Full Stack Developer', 'Systems Analyst'
+    ],
+    'Description': [
+        'data machine learning AI',
+        'ML large datasets optimization',
+        'coding software applications',
+        'business reports analysis',
+        'big data pipelines ETL SQL',
+        'deep learning neural networks AI',
+        'network security penetration testing encryption',
+        'AWS cloud computing serverless architecture',
+        'product strategy business growth customer insights',
+        'CI/CD automation Kubernetes Docker',
+        'frontend backend databases JavaScript Python',
+        'system architecture requirements engineering design'
+    ]
+}
+
+df = pd.DataFrame(data)
+
+# User's resume (example)
+user_resume = "machine learning AI data analysis"
+
+
+vectorizer = CountVectorizer()
+job_vectors = vectorizer.fit_transform(df['Description'])
+resume_vector = vectorizer.transform([user_resume])
+similarities = cosine_similarity(resume_vector, job_vectors).flatten()
+
+
+df['Similarity'] = similarities
+recommendations = df.sort_values(by='Similarity', ascending=False)
+print("Top job recommendations for you:")
+print(recommendations[['Job Title', 'Similarity']].head(3))
