@@ -1,43 +1,193 @@
 import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import re
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+import nltk
 
-# Sample job descriptions dataset
+# Download NLTK resources (only needed once)
+try:
+    nltk.data.find('corpora/stopwords')
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    nltk.download('stopwords')
+    nltk.download('wordnet')
+    nltk.download('punkt')
+    nltk.download('punkt_tab')
+
+# Text preprocessing function
+def preprocess_text(text):
+    text = text.lower()
+    text = re.sub(r'[^\w\s]', '', text)
+    tokens = nltk.word_tokenize(text)
+    stop_words = set(stopwords.words('english'))
+    lemmatizer = WordNetLemmatizer()
+    processed_tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
+    return ' '.join(processed_tokens)
+
+# Enhanced sample job descriptions dataset with more realistic descriptions
 data = {
     'Job Title': [
-        'Data Scientist', 'Machine Learning Engineer', 'Software Developer', 'Business Analyst',
-        'Data Engineer', 'AI Researcher', 'Cybersecurity Analyst', 'Cloud Engineer',
-        'Product Manager', 'DevOps Engineer', 'Full Stack Developer', 'Systems Analyst'
+        'Data Scientist', 
+        'Machine Learning Engineer', 
+        'Software Developer', 
+        'Business Analyst',
+        'Data Engineer', 
+        'AI Researcher', 
+        'Cybersecurity Analyst', 
+        'Cloud Engineer',
+        'Product Manager', 
+        'DevOps Engineer', 
+        'Full Stack Developer', 
+        'Systems Analyst'
     ],
     'Description': [
-        'data machine learning AI',
-        'ML large datasets optimization',
-        'coding software applications',
-        'business reports analysis',
-        'big data pipelines ETL SQL',
-        'deep learning neural networks AI',
-        'network security penetration testing encryption',
-        'AWS cloud computing serverless architecture',
-        'product strategy business growth customer insights',
-        'CI/CD automation Kubernetes Docker',
-        'frontend backend databases JavaScript Python',
-        'system architecture requirements engineering design'
+        'Analyze large datasets to extract insights using statistical methods and machine learning algorithms. Proficient in Python, R, SQL for data manipulation and visualization. Experience with predictive modeling and A/B testing.',
+        'Design and implement machine learning systems. Experience with deep learning frameworks like TensorFlow and PyTorch. Optimize ML models for production environments and handle large-scale data processing.',
+        'Develop and maintain software applications using various programming languages. Strong knowledge of software development lifecycle and coding best practices. Experience with version control systems and testing frameworks.',
+        'Gather and analyze business requirements to improve processes. Create detailed reports and dashboards for stakeholders. Experience with SQL, Excel, and data visualization tools like Tableau or Power BI.',
+        'Build and maintain data pipelines for efficient data processing. Experience with ETL tools, SQL, NoSQL databases, and distributed computing frameworks like Spark. Knowledge of data modeling and warehousing.',
+        'Conduct cutting-edge research in artificial intelligence. Publish papers and develop novel algorithms. Experience with deep learning, reinforcement learning, and natural language processing.',
+        'Monitor systems for security breaches and implement protective measures. Conduct vulnerability assessments and penetration testing. Knowledge of encryption protocols and security frameworks.',
+        'Design and implement cloud-based solutions using AWS, Azure, or GCP. Experience with serverless architecture, containers, and infrastructure as code. Knowledge of cloud security best practices.',
+        'Define product vision and strategy. Conduct market research and gather customer insights. Collaborate with engineering, design, and marketing teams to deliver successful products.',
+        'Implement CI/CD pipelines and maintain development infrastructure. Experience with Docker, Kubernetes, and configuration management tools. Automate deployment processes and monitor system performance.',
+        'Develop both frontend and backend components of web applications. Experience with JavaScript frameworks, HTML/CSS, and server-side technologies. Knowledge of databases and RESTful API design.',
+        'Analyze existing systems and design improvements. Gather and document technical requirements. Create system architecture diagrams and collaborate with development teams.'
+    ],
+    'Skills_Required': [
+        'Python, R, SQL, Machine Learning, Statistics, Data Visualization',
+        'TensorFlow, PyTorch, Python, Algorithm Optimization, Big Data',
+        'Java, C++, Python, Git, Software Architecture, Testing',
+        'SQL, Excel, Tableau, Power BI, Requirements Analysis',
+        'SQL, Spark, Hadoop, ETL, Data Modeling, Python',
+        'Deep Learning, Neural Networks, TensorFlow, Research Methods',
+        'Network Security, Penetration Testing, Encryption, Security Frameworks',
+        'AWS, Azure, Docker, Kubernetes, Terraform',
+        'Product Strategy, Market Research, User Stories, Roadmapping',
+        'Docker, Kubernetes, Jenkins, Ansible, Monitoring Tools',
+        'JavaScript, React, Node.js, Python, SQL, REST APIs',
+        'System Design, UML, Requirements Engineering, Process Modeling'
+    ],
+    'Experience_Level': [
+        'Mid-Senior', 'Senior', 'Junior-Mid', 'Junior-Mid',
+        'Mid-Senior', 'Senior', 'Mid', 'Mid-Senior',
+        'Senior', 'Mid-Senior', 'Mid', 'Mid'
+    ],
+    'Industry': [
+        'Technology, Healthcare, Finance', 
+        'Technology, Automotive, Research', 
+        'Technology, E-commerce, Finance',
+        'Finance, Healthcare, Consulting',
+        'Technology, E-commerce, Finance',
+        'Research, Technology, Healthcare',
+        'Finance, Government, Technology',
+        'Technology, Finance, E-commerce',
+        'Technology, E-commerce, Healthcare',
+        'Technology, E-commerce, Finance',
+        'Technology, Media, E-commerce',
+        'Consulting, Finance, Healthcare'
     ]
 }
 
 df = pd.DataFrame(data)
+df['Full_Text'] = df['Description'] + ' ' + df['Skills_Required'] + ' ' + df['Industry']
+df['Processed_Text'] = df['Full_Text'].apply(preprocess_text)
 
-# User's resume (example)
-user_resume = "machine learning AI data analysis"
+# Example
+user_resume = """
+Experienced data professional with 3 years of experience in machine learning and AI applications.
+Proficient in Python programming with libraries such as pandas, scikit-learn, and TensorFlow.
+Developed predictive models for customer behavior analysis and implemented data pipelines.
+Strong background in statistical analysis and data visualization using Tableau.
+Seeking roles where I can apply my machine learning expertise to solve challenging business problems.
+"""
 
+processed_resume = preprocess_text(user_resume)
 
-vectorizer = CountVectorizer()
-job_vectors = vectorizer.fit_transform(df['Description'])
-resume_vector = vectorizer.transform([user_resume])
+tfidf_vectorizer = TfidfVectorizer(min_df=2, max_df=0.7)
+job_vectors = tfidf_vectorizer.fit_transform(df['Processed_Text'])
+resume_vector = tfidf_vectorizer.transform([processed_resume])
+
 similarities = cosine_similarity(resume_vector, job_vectors).flatten()
+df['Similarity_Score'] = similarities * 100  # Convert to percentage
 
+# Apply weighted scoring based on experience level match
+experience_weight = 0.2
+experience_match = df['Experience_Level'].apply(lambda x: 'Mid' in x)  # Assume user is mid-level
+df['Weighted_Score'] = df['Similarity_Score'] * (1 + (experience_weight * experience_match))
 
-df['Similarity'] = similarities
-recommendations = df.sort_values(by='Similarity', ascending=False)
+recommendations = df.sort_values(by='Weighted_Score', ascending=False)
 print("Top job recommendations for you:")
-print(recommendations[['Job Title', 'Similarity']].head(3))
+top_recommendations = recommendations[['Job Title', 'Weighted_Score', 'Experience_Level', 'Industry']].head(5)
+top_recommendations['Weighted_Score'] = top_recommendations['Weighted_Score'].round(2)
+print(top_recommendations)
+
+# Visualize the results
+try:
+    import matplotlib.pyplot as plt
+    
+    plt.figure(figsize=(10, 6))
+    
+    top_jobs = recommendations[['Job Title', 'Weighted_Score']].head(7)
+    plt.barh(top_jobs['Job Title'], top_jobs['Weighted_Score'], color='skyblue')
+    plt.xlabel('Match Score (%)')
+    plt.ylabel('Job Title')
+    plt.title('Top Job Matches for Your Profile')
+    plt.xlim(0, 100)
+    plt.grid(axis='x', linestyle='--', alpha=0.7)
+    for i, v in enumerate(top_jobs['Weighted_Score']):
+        plt.text(v + 1, i, f"{v:.1f}%", va='center')
+    
+    plt.tight_layout()
+    plt.show()
+except ImportError:
+    print("\nNote: Install matplotlib to visualize the results graphically.")
+
+
+top_job = recommendations.iloc[0]
+print(f"\nSkill Gap Analysis for {top_job['Job Title']}:")
+top_job_skills = set(top_job['Skills_Required'].lower().split(', '))
+resume_text_lower = user_resume.lower()
+
+missing_skills = []
+for skill in top_job_skills:
+    if skill.lower() not in resume_text_lower:
+        missing_skills.append(skill)
+
+if missing_skills:
+    print("Consider developing these skills to improve your match:")
+    for skill in missing_skills:
+        print(f"- {skill}")
+else:
+    print("Your resume already mentions all key skills for this position!")
+
+def generate_advice(recommendations, user_resume):
+    top_job = recommendations.iloc[0]
+    second_job = recommendations.iloc[1]
+    
+    advice = "\nPersonalized Career Advice:\n"
+    
+    # Check if top matches are very different
+    if abs(top_job['Weighted_Score'] - second_job['Weighted_Score']) < 5:
+        advice += f"Your profile shows strong matches for both {top_job['Job Title']} and {second_job['Job Title']}. "
+        advice += "Consider which industry aligns better with your interests.\n"
+    else:
+        advice += f"Your profile shows a particularly strong match for {top_job['Job Title']} roles. "
+        advice += "Focus your job search on this role type for best results.\n"
+    
+    industries = []
+    for _, job in recommendations.head(3).iterrows():
+        industries.extend(job['Industry'].split(', '))
+    
+    from collections import Counter
+    industry_counts = Counter(industries)
+    most_common = industry_counts.most_common(1)[0]
+    
+    advice += f"Based on your top matches, the {most_common[0]} industry appears to be a good fit for your skills.\n"
+    
+    return advice
+
+print(generate_advice(recommendations, user_resume))
